@@ -61,7 +61,7 @@ async def handle_registration(update: Update, context: ContextTypes.DEFAULT_TYPE
                    (user_id, name, target))
     conn.commit()
 
-    await update.message.reply_text("Registered ✅ Go dominate 💀")
+    await update.message.reply_text("Registered ✅")
 
 async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -87,13 +87,11 @@ async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ypt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
 
-    try:
-        time_str = context.args[0]
-    except:
+    if not context.args:
         await update.message.reply_text("Use: /YPT 05:30")
         return
 
-    minutes = parse_time_to_minutes(time_str)
+    minutes = parse_time_to_minutes(context.args[0])
     if minutes is None:
         await update.message.reply_text("Invalid format")
         return
@@ -110,7 +108,7 @@ async def ypt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("UPDATE users SET points = points + ? WHERE user_id=?", (points, user_id))
     conn.commit()
 
-    await update.message.reply_text(f"YPT {time_str} | Points: {points}")
+    await update.message.reply_text(f"YPT {context.args[0]} | Points: {points}")
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT name, points FROM users ORDER BY points DESC LIMIT 10")
@@ -121,8 +119,6 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += f"{i}. {name} - {pts}\n"
 
     await update.message.reply_text(text)
-
-
 
 app = ApplicationBuilder().token(TOKEN).build()
 
