@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import asyncio
 from datetime import datetime
 from telegram import Update
 from telegram.ext import (
@@ -72,7 +73,7 @@ async def handle_registration(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     conn.commit()
 
-    await update.message.reply_text("✅ Registered. Go dominate 💀")
+    await update.message.reply_text("✅ Registered")
 
 async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -83,7 +84,7 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (user_id,))
     conn.commit()
 
-    await update.message.reply_text("📌 Todo logged (+2)")
+    await update.message.reply_text("📌 Todo +2")
 
 async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -93,7 +94,7 @@ async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (user_id,))
     conn.commit()
 
-    await update.message.reply_text("✅ Completed (+2)")
+    await update.message.reply_text("✅ Completed +2")
 
 async def ypt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -151,7 +152,8 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_registration))
 
     print("🔥 Bot running...")
-    app.run_polling()
+
+    asyncio.run(app.run_polling())
 
 if __name__ == "__main__":
     main()
