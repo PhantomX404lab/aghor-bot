@@ -1,17 +1,12 @@
-import asyncio
-import os
+import telebot
 import sqlite3
 from datetime import datetime
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
+import os
 
 TOKEN = os.getenv("TOKEN")
+bot = telebot.TeleBot(TOKEN)
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
-
-# ===== DATABASE =====
-conn = sqlite3.connect("aghor.db")
+conn = sqlite3.connect("aghor.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -34,96 +29,69 @@ CREATE TABLE IF NOT EXISTS logs (
 """)
 conn.commit()
 
-def parse_time_to_minutes(t):
+def parse_time(t):
     try:
         h, m = map(int, t.split(":"))
         return h*60 + m
     except:
         return None
 
-# ===== COMMANDS =====
-@dp.message(Command("start"))
-async def start(msg: types.Message):
-    await msg.answer(
-        "🔥 AGHOR 🔥\n\n"
-        "Send your avg study time (HH:MM) or type 'new'"
-    )
+@bot.message_handler(commands=['start'])
+def start(msg):
+    bot.reply_to(msg, "🔥 AGHOR 🔥\nSend time (HH:MM) or 'new'")
 
-@dp.message()
-async def register(msg: types.Message):
-    user_id = msg.from_user.id
-    name = msg.from_user.first_name
-    text = msg.text
-
-    if text.startswith("/"):
-        return
-
-    if text.lower() == "new":
-        target = 0
-    else:
-        target = parse_time_to_minutes(text)
-        if target is None:
-            await msg.answer("Invalid format")
-            return
-
-    cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, COALESCE((SELECT points FROM users WHERE user_id=?),0))",
-                   (user_id, name, target, user_id))
-    conn.commit()
-
-    await msg.answer("✅ Registered")
-
-@dp.message(Command("todo"))
-async def todo(msg: types.Message):
-    user_id = msg.from_user.id
+@bot.message_handler(commands=['todo'])
+def todo(msg):
+    uid = msg.from_user.id
     date = str(datetime.now().date())
 
-    cursor.execute("INSERT OR IGNORE INTO logs VALUES (?, ?, 0, 0, 0)", (user_id, date))
-    cursor.execute("UPDATE logs SET todo=1 WHERE user_id=? AND date=?", (user_id, date))
-    cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (user_id,))
+    cursor.execute("INSERT OR IGNORE INTO logs VALUES (?, ?, 0, 0, 0)", (uid, date))
+    cursor.execute("UPDATE logs SET todo=1 WHERE user_id=? AND date=?", (uid, date))
+    cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (uid,))
     conn.commit()
 
-    await msg.answer("📌 Todo +2")
+    bot.reply_to(msg, "📌 Todo +2")
 
-@dp.message(Command("complete"))
-async def complete(msg: types.Message):
-    user_id = msg.from_user.id
+@bot.message_handler(commands=['complete'])
+def complete(msg):
+    uid = msg.from_user.id
     date = str(datetime.now().date())
 
-    cursor.execute("UPDATE logs SET complete=1 WHERE user_id=? AND date=?", (user_id, date))
-    cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (user_id,))
+    cursor.execute("UPDATE logs SET complete=1 WHERE user_id=? AND date=?", (uid, date))
+    cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (uid,))
     conn.commit()
 
-    await msg.answer("✅ Completed +2")
+    bot.reply_to(msg, "✅ Completed +2")
 
-@dp.message(Command("YPT"))
-async def ypt(msg: types.Message):
-    user_id = msg.from_user.id
-    parts = msg.text.split()
-
-    if len(parts) < 2:
-        await msg.answer("Use: /YPT 05:30")
+@bot.message_handler(commands=['YPT'])
+def ypt(msg):
+    uid = msg.from_user.id
+    try:
+        time_str = msg.text.split()[1]
+    except:
+        bot.reply_to(msg, "Use: /YPT 05:30")
         return
 
-    minutes = parse_time_to_minutes(parts[1])
-    if minutes is None:
-        await msg.answer("Invalid format")
+    mins = parse_time(time_str)
+    if mins is None:
+        bot.reply_to(msg, "Invalid format")
         return
 
-    cursor.execute("SELECT target_minutes FROM users WHERE user_id=?", (user_id,))
-    result = cursor.fetchone()
-    target = result[0] if result else 0
+    cursor.execute("SELECT target_minutes FROM users WHERE user_id=?", (uid,))
+    res = cursor.fetchone()
+    target = res[0] if res else 0
 
-    points = 2 if minutes > target else -1
+    pts = 2 if mins > target else -1
     date = str(datetime.now().date())
 
-    cursor.execute("UPDATE logs SET ypt_minutes=? WHERE user_id=? AND date=?", (minutes, user_id, date))
-    cursor.execute("UPDATE users SET points = points + ? WHERE user_id=?", (points, user_id))
+    cursor.execute("UPDATE logs SET ypt_minutes=? WHERE user_id=? AND date=?", (mins, uid, date))
+    cursor.execute("UPDATE users SET points = points + ? WHERE user_id=?", (pts, uid))
     conn.commit()
 
-    await msg.answer(f"⏱ {parts[1]} | Points: {points}")
+    bot.reply_to(msg, f"⏱ {time_str} | Points: {pts}")
 
-@dp.message(Command("leaderboard"))
-async def leaderboard(msg: types.Message):
+@bot.message_handler(commands=['leaderboard'])
+def leaderboard(msg):
     cursor.execute("SELECT name, points FROM users ORDER BY points DESC LIMIT 10")
     rows = cursor.fetchall()
 
@@ -131,12 +99,29 @@ async def leaderboard(msg: types.Message):
     for i, (name, pts) in enumerate(rows, 1):
         text += f"{i}. {name} - {pts}\n"
 
-    await msg.answer(text)
+    bot.reply_to(msg, text)
 
-# ===== RUN =====
-async def main():
-    print("🔥 Bot running...")
-    await dp.start_polling(bot)
+@bot.message_handler(func=lambda m: True)
+def register(msg):
+    if msg.text.startswith("/"):
+        return
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    uid = msg.from_user.id
+    name = msg.from_user.first_name
+
+    if msg.text.lower() == "new":
+        target = 0
+    else:
+        target = parse_time(msg.text)
+        if target is None:
+            bot.reply_to(msg, "Invalid format")
+            return
+
+    cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, COALESCE((SELECT points FROM users WHERE user_id=?),0))",
+                   (uid, name, target, uid))
+    conn.commit()
+
+    bot.reply_to(msg, "✅ Registered")
+
+print("🔥 Bot running...")
+bot.infinity_polling()
