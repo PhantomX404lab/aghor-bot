@@ -122,8 +122,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-updater = Updater(TOKEN, use_context=True)
-dp = updater.dispatcher
+
 
 app = ApplicationBuilder().token(TOKEN).build()
 
