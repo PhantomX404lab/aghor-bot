@@ -1,6 +1,6 @@
 import os
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import sqlite3
 from datetime import datetime
 
@@ -122,15 +122,17 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-app = ApplicationBuilder().token(TOKEN).build()
+updater = Updater(TOKEN, use_context=True)
+dp = updater.dispatcher
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("todo", todo))
-app.add_handler(CommandHandler("complete", complete))
-app.add_handler(CommandHandler("YPT", ypt))
-app.add_handler(CommandHandler("leaderboard", leaderboard))
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(CommandHandler("todo", todo))
+dp.add_handler(CommandHandler("complete", complete))
+dp.add_handler(CommandHandler("YPT", ypt))
+dp.add_handler(CommandHandler("leaderboard", leaderboard))
 
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_registration))
+dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_registration))
 
 print("Bot running...")
-app.run_polling()
+updater.start_polling()
+updater.idle()
