@@ -1,11 +1,18 @@
 import os
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 import sqlite3
 from datetime import datetime
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 TOKEN = os.getenv("TOKEN")
 
+# ===== DATABASE =====
 conn = sqlite3.connect("aghor.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -29,16 +36,18 @@ CREATE TABLE IF NOT EXISTS logs (
 """)
 conn.commit()
 
+# ===== HELPERS =====
 def parse_time_to_minutes(time_str):
     try:
         h, m = map(int, time_str.split(":"))
-        return h*60 + m
+        return h * 60 + m
     except:
         return None
 
+# ===== COMMANDS =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Welcome to AGHOR 🔥\n\n"
+        "🔥 AGHOR BOT 🔥\n\n"
         "Send your previous week avg study time\n"
         "Format: HH:MM (example: 05:30)\n"
         "OR type 'new'"
@@ -57,11 +66,13 @@ async def handle_registration(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("Invalid format. Use HH:MM or 'new'")
             return
 
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, name, target_minutes) VALUES (?, ?, ?)",
-                   (user_id, name, target))
+    cursor.execute(
+        "INSERT OR REPLACE INTO users (user_id, name, target_minutes) VALUES (?, ?, ?)",
+        (user_id, name, target)
+    )
     conn.commit()
 
-    await update.message.reply_text("Registered ✅")
+    await update.message.reply_text("✅ Registered. Go dominate 💀")
 
 async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -72,7 +83,7 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (user_id,))
     conn.commit()
 
-    await update.message.reply_text("Todo +2 points ✅")
+    await update.message.reply_text("📌 Todo logged (+2)")
 
 async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -82,7 +93,7 @@ async def complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("UPDATE users SET points = points + 2 WHERE user_id=?", (user_id,))
     conn.commit()
 
-    await update.message.reply_text("Completed +2 🔥")
+    await update.message.reply_text("✅ Completed (+2)")
 
 async def ypt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -97,18 +108,23 @@ async def ypt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     cursor.execute("SELECT target_minutes FROM users WHERE user_id=?", (user_id,))
-    target = cursor.fetchone()
-    target = target[0] if target else 0
+    result = cursor.fetchone()
+    target = result[0] if result else 0
 
     points = 2 if minutes > target else -1
-
     date = str(datetime.now().date())
 
-    cursor.execute("UPDATE logs SET ypt_minutes=? WHERE user_id=? AND date=?", (minutes, user_id, date))
-    cursor.execute("UPDATE users SET points = points + ? WHERE user_id=?", (points, user_id))
+    cursor.execute(
+        "UPDATE logs SET ypt_minutes=? WHERE user_id=? AND date=?",
+        (minutes, user_id, date)
+    )
+    cursor.execute(
+        "UPDATE users SET points = points + ? WHERE user_id=?",
+        (points, user_id)
+    )
     conn.commit()
 
-    await update.message.reply_text(f"YPT {context.args[0]} | Points: {points}")
+    await update.message.reply_text(f"⏱ YPT: {context.args[0]} | Points: {points}")
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT name, points FROM users ORDER BY points DESC LIMIT 10")
@@ -120,28 +136,22 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-print("TOKEN:", TOKEN)
+# ===== MAIN =====
+def main():
+    if not TOKEN:
+        raise Exception("TOKEN missing")
+
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("todo", todo))
+    app.add_handler(CommandHandler("complete", complete))
+    app.add_handler(CommandHandler("YPT", ypt))
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_registration))
+
+    print("🔥 Bot running...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    try:
-        print("Starting bot...")
-        print("TOKEN:", TOKEN)
-
-        if TOKEN is None:
-            raise Exception("TOKEN is None — check environment variable")
-
-        app = ApplicationBuilder().token(TOKEN).build()
-
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("todo", todo))
-        app.add_handler(CommandHandler("complete", complete))
-        app.add_handler(CommandHandler("YPT", ypt))
-        app.add_handler(CommandHandler("leaderboard", leaderboard))
-
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_registration))
-
-        print("Bot running...")
-        app.run_polling()
-
-    except Exception as e:
-        print("CRASH ERROR:", e)
+    main()
