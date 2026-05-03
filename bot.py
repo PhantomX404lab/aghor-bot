@@ -2,10 +2,27 @@ import telebot
 import sqlite3
 from datetime import datetime
 import os
+from flask import Flask
+import threading
 
 TOKEN = os.getenv("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
+# ===== FLASK SERVER (for Render) =====
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🔥 AGHOR BOT RUNNING"
+
+def run():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = threading.Thread(target=run)
+    t.start()
+
+# ===== DATABASE =====
 conn = sqlite3.connect("aghor.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -36,6 +53,7 @@ def parse_time(t):
     except:
         return None
 
+# ===== COMMANDS =====
 @bot.message_handler(commands=['start'])
 def start(msg):
     bot.reply_to(msg, "🔥 AGHOR 🔥\nSend time (HH:MM) or 'new'")
@@ -101,6 +119,7 @@ def leaderboard(msg):
 
     bot.reply_to(msg, text)
 
+# ===== REGISTRATION =====
 @bot.message_handler(func=lambda m: True)
 def register(msg):
     if msg.text.startswith("/"):
@@ -117,11 +136,16 @@ def register(msg):
             bot.reply_to(msg, "Invalid format")
             return
 
-    cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, COALESCE((SELECT points FROM users WHERE user_id=?),0))",
-                   (uid, name, target, uid))
+    cursor.execute("""
+    INSERT OR REPLACE INTO users (user_id, name, target_minutes, points)
+    VALUES (?, ?, ?, COALESCE((SELECT points FROM users WHERE user_id=?),0))
+    """, (uid, name, target, uid))
     conn.commit()
 
     bot.reply_to(msg, "✅ Registered")
 
-print("🔥 Bot running...")
-bot.infinity_polling()
+# ===== RUN =====
+if __name__ == "__main__":
+    print("🔥 Bot running...")
+    keep_alive()
+    bot.infinity_polling()
