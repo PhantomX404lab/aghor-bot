@@ -122,15 +122,26 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 print("TOKEN:", TOKEN)
 
-app = ApplicationBuilder().token(TOKEN).build()
+if __name__ == "__main__":
+    try:
+        print("Starting bot...")
+        print("TOKEN:", TOKEN)
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("todo", todo))
-app.add_handler(CommandHandler("complete", complete))
-app.add_handler(CommandHandler("YPT", ypt))
-app.add_handler(CommandHandler("leaderboard", leaderboard))
+        if TOKEN is None:
+            raise Exception("TOKEN is None — check environment variable")
 
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_registration))
+        app = ApplicationBuilder().token(TOKEN).build()
 
-print("Bot running...")
-app.run_polling()
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("todo", todo))
+        app.add_handler(CommandHandler("complete", complete))
+        app.add_handler(CommandHandler("YPT", ypt))
+        app.add_handler(CommandHandler("leaderboard", leaderboard))
+
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_registration))
+
+        print("Bot running...")
+        app.run_polling()
+
+    except Exception as e:
+        print("CRASH ERROR:", e)
