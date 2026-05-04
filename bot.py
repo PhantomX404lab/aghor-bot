@@ -80,7 +80,7 @@ def complete(msg):
     conn.commit()
 
     bot.reply_to(msg, "✅ Completed +2")
-
+#ERROR [streak = stat missing]
 @bot.message_handler(commands=['YPT'])
 def ypt(msg):
     uid = msg.from_user.id
